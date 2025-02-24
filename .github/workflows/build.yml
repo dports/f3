@@ -90,7 +90,7 @@ jobs:
           docker run --rm -v $(pwd)/docker-artifacts:/out f3 bash -c "cp /usr/local/bin/f3* /out/"
       
       - name: Upload Docker artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docker-f3-binaries
           path: docker-artifacts/
