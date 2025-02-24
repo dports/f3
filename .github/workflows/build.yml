@@ -13,7 +13,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        lf: true  # Принудительно используем LF окончания строк
+        # Явно указываем использовать LF окончания
+        fetch-depth: 0  # Опционально: получаем всю историю коммитов
+
+    - name: Configure Git line endings
+      run: |
+        git config --global core.autocrlf false
+        git config --global core.eol lf
 
     - name: Install Cygwin (Windows)
       if: matrix.os == 'windows-latest'
@@ -28,7 +34,7 @@ jobs:
       run: |
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             export PATH="/cygdrive/c/cygwin64/bin:$PATH"
-        elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+        else
             sudo apt-get update
             sudo apt-get install -y libudev-dev libparted-dev
         fi
