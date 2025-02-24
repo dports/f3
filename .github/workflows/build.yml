@@ -62,7 +62,7 @@ jobs:
             cp *.exe artifacts/
             ;;
           *)
-            cp f3write f3read f3probe f3brew f3fix artifacts/
+            cp f3* artifacts/
             ;;
         esac
 
