@@ -13,15 +13,21 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Install Cygwin (Windows only)
+      if: matrix.os == 'windows-latest'
+      uses: cygwin/cygwin-install-action@v2
+      with:
+        platform: x86_64
+        packages: gcc-core make libargp-devel libparted-devel libudev-devel
+        install-dir: C:/cygwin64
+
     - name: Setup environment
       shell: bash
       run: |
         case "${{ matrix.os }}" in
           windows-latest)
-            choco install cygwin -y --force
-            export CYGWIN_ROOT="/cygdrive/c/cygwin"
+            export CYGWIN_ROOT="/cygdrive/c/cygwin64"
             export PATH="$CYGWIN_ROOT/bin:$PATH"
-            apt-cyg.exe -P gcc-core make libargp-devel libparted-devel libudev-devel
             ;;
             
           ubuntu-latest)
