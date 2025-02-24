@@ -21,7 +21,7 @@ jobs:
             choco install cygwin -y --force
             export CYGWIN_ROOT="/cygdrive/c/cygwin"
             export PATH="$CYGWIN_ROOT/bin:$PATH"
-            cyg-get.exe -P gcc-core make libargp-devel libparted-devel libudev-devel
+            apt-cyg.exe -P gcc-core make libargp-devel libparted-devel libudev-devel
             ;;
             
           ubuntu-latest)
