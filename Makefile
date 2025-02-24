@@ -1,8 +1,6 @@
 CC ?= gcc
 CFLAGS += -std=c99 -Wall -Wextra -pedantic -MMD -ggdb
 LDFLAGS += -lm
-TARGETS = f3write f3read
-EXTRA_TARGETS = f3probe f3brew f3fix
 
 # Platform detection
 ifeq ($(OS),Windows_NT)
@@ -11,7 +9,7 @@ else
 	PLATFORM = $(shell uname -s)
 endif
 
-# Platform-specific configurations
+# Platform-specific settings
 ifeq ($(PLATFORM),Windows)
 	EXE_EXT = .exe
 	ARGP_PATH = /usr/local
@@ -27,26 +25,21 @@ else ifeq ($(PLATFORM),Linux)
 	LDFLAGS += -ludev -lparted
 endif
 
-# Targets with platform-specific extensions
-TARGETS := $(addsuffix $(EXE_EXT),$(TARGETS))
-EXTRA_TARGETS := $(addsuffix $(EXE_EXT),$(EXTRA_TARGETS))
+# All targets with platform extensions
+ALL_TARGETS = f3write f3read f3probe f3brew f3fix
+ALL_TARGETS := $(addsuffix $(EXE_EXT),$(ALL_TARGETS))
 
-all: $(TARGETS)
-extra: $(EXTRA_TARGETS)
+all: $(ALL_TARGETS)
 
 docker:
 	docker build -f Dockerfile -t f3:latest .
 
-install: all
+install:
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
-	$(INSTALL) -m755 $(TARGETS) $(DESTDIR)$(PREFIX)/bin
+	$(INSTALL) -m755 $(ALL_TARGETS) $(DESTDIR)$(PREFIX)/bin
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/man/man1
 	$(INSTALL) -m644 f3read.1 $(DESTDIR)$(PREFIX)/share/man/man1
 	$(LN) -f f3read.1 $(DESTDIR)$(PREFIX)/share/man/man1/f3write.1
-
-install-extra: extra
-	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
-	$(INSTALL) -m755 $(EXTRA_TARGETS) $(DESTDIR)$(PREFIX)/bin
 
 # Build rules
 f3write$(EXE_EXT): utils.o libflow.o f3write.o
@@ -72,4 +65,4 @@ cscope:
 	cscope -b *.c *.h
 
 clean:
-	rm -f *.o *.d cscope.out $(TARGETS) $(EXTRA_TARGETS)
+	rm -f *.o *.d cscope.out $(ALL_TARGETS)
