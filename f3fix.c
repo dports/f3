@@ -230,6 +230,14 @@ out:
 	return ret;
 }
 
+static PedSector map_sector_to_logical_sector(PedSector sector,
+	int logical_sector_size)
+{
+	assert(logical_sector_size >= 512);
+	assert(logical_sector_size % 512 == 0);
+	return sector / (logical_sector_size / 512);
+}
+
 // Оригинальные Linux-функции с argp
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 	struct args *args = state->input;
