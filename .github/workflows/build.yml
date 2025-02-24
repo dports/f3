@@ -12,13 +12,16 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # Важно: Конвертируем концы строк в LF
+        lf: true
 
-    - name: Install Cygwin (Windows only)
+    - name: Install Cygwin (Windows)
       if: matrix.os == 'windows-latest'
       uses: cygwin/cygwin-install-action@v2
       with:
         platform: x86_64
-        packages: gcc-core make libargp-devel libparted-devel libudev-devel
+        packages: gcc-core make libargp-devel 
         install-dir: C:/cygwin64
 
     - name: Setup environment
@@ -26,8 +29,7 @@ jobs:
       run: |
         case "${{ matrix.os }}" in
           windows-latest)
-            export CYGWIN_ROOT="/cygdrive/c/cygwin64"
-            export PATH="$CYGWIN_ROOT/bin:$PATH"
+            export PATH="/cygdrive/c/cygwin64/bin:$PATH"
             ;;
             
           ubuntu-latest)
@@ -36,59 +38,21 @@ jobs:
             ;;
         esac
 
-    - name: Build all targets
-      shell: bash
-      env:
-        CC: gcc
+    - name: Build
       run: |
         case "${{ matrix.os }}" in
           windows-latest)
-            export ARGP_PATH="$CYGWIN_ROOT/usr/local"
             make CC="gcc" EXTRA_CFLAGS="-DWINDOWS_COMPAT" all
             ;;
-            
           *)
             make all
             ;;
         esac
 
-    - name: Collect artifacts
-      shell: bash
-      run: |
-        mkdir -p artifacts
-        case "${{ matrix.os }}" in
-          windows-latest)
-            cp *.exe artifacts/
-            ;;
-          *)
-            cp f3* artifacts/
-            ;;
-        esac
-
-    - name: Upload binaries
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: f3-${{ matrix.os }}-binaries
-        path: artifacts/
-        if-no-files-found: error
-
-  docker-build:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Build Docker image
-        run: docker build -t f3 .
-      
-      - name: Extract Docker artifacts
-        run: |
-          mkdir -p docker-artifacts
-          docker run --rm -v $(pwd)/docker-artifacts:/out f3 bash -c "cp /usr/local/bin/f3* /out/"
-      
-      - name: Upload Docker artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-f3-binaries
-          path: docker-artifacts/
+        name: f3-${{ matrix.os }}
+        path: |
+          *.exe
+          f3*
