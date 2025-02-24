@@ -124,6 +124,7 @@ static void parse_args(int argc, char **argv, struct args *args) {
 static long long arg_to_long_long(const struct argp_state *state, const char *arg);
 static void list_disk_types(void);
 static void list_fs_types(void);
+static PedSector map_sector_to_logical_sector(PedSector sector, int logical_sector_size);
 static int fix_disk(PedDevice *dev, PedDiskType *type, PedFileSystemType *fs_type, int boot, PedSector start, PedSector end);
 
 static char adoc[] = "<DISK_DEV>";
@@ -334,8 +335,8 @@ int main(int argc, char *argv[]) {
         .list_disk_types = false,
         .list_fs_types = false,
         .boot = true,
-        .disk_type = "msdos",
-        .fs_type = "fat32",
+        .disk_type = ped_disk_type_get("msdos"),  // Исправлено
+        .fs_type = ped_file_system_type_get("fat32"),  // Исправлено
         .first_sec = DEFAULT_FIRST_SEC,
         .last_sec = -1
     };
@@ -402,11 +403,15 @@ int main(int argc, char *argv[]) {
 		 */
 		return 0;
 	}
-
+	
+	if (!args.disk_type || !args.fs_type) {
+	    fprintf(stderr, "Invalid disk or filesystem type\n");
+	    return 1;
+	}
+	
 	/* XXX If @dev is a partition, refer the user to
 	 * the disk of this partition.
 	 */
-	//dev = ped_device_get(args.dev_filename);
 	if (!dev)
 		return 1;
 
