@@ -13,41 +13,33 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        # Важно: Конвертируем концы строк в LF
-        lf: true
+        lf: true  # Принудительно используем LF окончания строк
 
     - name: Install Cygwin (Windows)
       if: matrix.os == 'windows-latest'
       uses: cygwin/cygwin-install-action@v2
       with:
         platform: x86_64
-        packages: gcc-core make libargp-devel 
+        packages: gcc-core make libargp-devel
         install-dir: C:/cygwin64
 
     - name: Setup environment
       shell: bash
       run: |
-        case "${{ matrix.os }}" in
-          windows-latest)
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             export PATH="/cygdrive/c/cygwin64/bin:$PATH"
-            ;;
-            
-          ubuntu-latest)
+        elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             sudo apt-get update
             sudo apt-get install -y libudev-dev libparted-dev
-            ;;
-        esac
+        fi
 
     - name: Build
       run: |
-        case "${{ matrix.os }}" in
-          windows-latest)
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             make CC="gcc" EXTRA_CFLAGS="-DWINDOWS_COMPAT" all
-            ;;
-          *)
+        else
             make all
-            ;;
-        esac
+        fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
