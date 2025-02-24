@@ -29,8 +29,8 @@ struct args {
     bool list_fs_types;
     bool boot;
     const char *dev_filename;
-    const char *disk_type;
-    const char *fs_type;
+    PedDiskType *disk_type; 
+    PedFileSystemType *fs_type;
     long long first_sec;
     long long last_sec;
 };
@@ -120,6 +120,115 @@ static void parse_args(int argc, char **argv, struct args *args) {
 }
 
 #else // Linux реализация
+
+static long long arg_to_long_long(const struct argp_state *state, const char *arg);
+static void list_disk_types(void);
+static void list_fs_types(void);
+static int fix_disk(PedDevice *dev, PedDiskType *type, PedFileSystemType *fs_type, int boot, PedSector start, PedSector end);
+
+static char adoc[] = "<DISK_DEV>";
+static char doc[] = "F3 Fix -- edit the partition table...";
+static struct argp_option options[] = {
+    {"disk-type",    'd',    "TYPE",    0, "Disk type", 2},
+    // ... остальные опции из оригинального кода ...
+};
+
+static void list_disk_types(void)
+{
+	PedDiskType *type;
+	int i = 0;
+	printf("Disk types:\n");
+	for (type = ped_disk_type_get_next(NULL); type;
+		type = ped_disk_type_get_next(type)) {
+		printf("%s\t", type->name);
+		i++;
+		if (i == 5) {
+			printf("\n");
+			i = 0;
+		}
+	}
+	if (i > 0)
+		printf("\n");
+	printf("\n");
+}
+
+static void list_fs_types(void)
+{
+	PedFileSystemType *fs_type;
+	int i = 0;
+	printf("File system types:\n");
+	for (fs_type = ped_file_system_type_get_next(NULL); fs_type;
+		fs_type = ped_file_system_type_get_next(fs_type)) {
+		printf("%s\t", fs_type->name);
+		i++;
+		if (i == 5) {
+			printf("\n");
+			i = 0;
+		}
+	}
+	if (i > 0)
+		printf("\n");
+	printf("\n");
+}
+
+static long long arg_to_long_long(const struct argp_state *state,
+	const char *arg)
+{
+	char *end;
+	long long ll = strtoll(arg, &end, 0);
+	if (!arg)
+		argp_error(state, "An integer must be provided");
+	if (!*arg || *end)
+		argp_error(state, "`%s' is not an integer", arg);
+	return ll;
+}
+
+static int fix_disk(PedDevice *dev, PedDiskType *type,
+	PedFileSystemType *fs_type, int boot, PedSector start, PedSector end)
+{
+	PedDisk *disk;
+	PedPartition *part;
+	PedGeometry *geom;
+	PedConstraint *constraint;
+	int ret = 0;
+
+	disk = ped_disk_new_fresh(dev, type);
+	if (!disk)
+		goto out;
+
+	start = map_sector_to_logical_sector(start, dev->sector_size);
+	end = map_sector_to_logical_sector(end, dev->sector_size);
+	part = ped_partition_new(disk, PED_PARTITION_NORMAL,
+		fs_type, start, end);
+	if (!part)
+		goto disk;
+	if (boot && !ped_partition_set_flag(part, PED_PARTITION_BOOT, 1))
+		goto part;
+
+	geom = ped_geometry_new(dev, start, end - start + 1);
+	if (!geom)
+		goto part;
+	constraint = ped_constraint_exact(geom);
+	ped_geometry_destroy(geom);
+	if (!constraint)
+		goto part;
+
+	ret = ped_disk_add_partition(disk, part, constraint);
+	ped_constraint_destroy(constraint);
+	if (!ret)
+		goto part;
+	/* ped_disk_print(disk); */
+
+	ret = ped_disk_commit(disk);
+	goto disk;
+
+part:
+	ped_partition_destroy(part);
+disk:
+	ped_disk_destroy(disk);
+out:
+	return ret;
+}
 
 // Оригинальные Linux-функции с argp
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -252,6 +361,7 @@ int main(int argc, char *argv[]) {
 #ifdef _WIN32
     // Windows: преобразование пути
     char win_path[MAX_PATH];
+    char drive_letter;
     if (sscanf(args.dev_filename, "/dev/sd%c", &drive_letter) == 1) {
         int drive_num = tolower(drive_letter) - 'a';
         snprintf(win_path, MAX_PATH, "\\\\.\\PhysicalDrive%d", drive_num);
@@ -288,12 +398,13 @@ int main(int argc, char *argv[]) {
 	/* XXX If @dev is a partition, refer the user to
 	 * the disk of this partition.
 	 */
-	dev = ped_device_get(args.dev_filename);
+	//dev = ped_device_get(args.dev_filename);
 	if (!dev)
 		return 1;
 
 	ret = !fix_disk(dev, args.disk_type, args.fs_type, args.boot,
-		args.first_sec, args.last_sec);
+	    args.first_sec, args.last_sec);
+	return ret;
 #endif
 
     printf("Drive %s was successfully fixed\n", args.dev_filename);
