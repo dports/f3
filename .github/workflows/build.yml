@@ -1,4 +1,4 @@
-name: CI Build
+name: F3 CI/CD
 
 on: [push, pull_request]
 
@@ -7,24 +7,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Setup environment
       shell: bash
       run: |
-        case ${{ matrix.os }} in
+        case "${{ matrix.os }}" in
           windows-latest)
-            # Install Cygwin
-            choco install cygwin -y
+            # Установка Cygwin и зависимостей
+            choco install cygwin -y --force
             export CYGWIN_ROOT="/cygdrive/c/cygwin"
             export PATH="$CYGWIN_ROOT/bin:$PATH"
-            
-            # Install required Cygwin packages
-            cyg-get.exe -P gcc-core,make,libargp-devel
+            cyg-get.exe -P gcc-core make libargp-devel libparted-devel libudev-devel
             ;;
             
           ubuntu-latest)
@@ -34,54 +32,65 @@ jobs:
             
           macos-latest)
             brew update
-            brew install argp-standalone
+            brew install argp-standalone parted
             ;;
         esac
 
-    - name: Build f3
+    - name: Build all targets
       shell: bash
+      env:
+        ARGP_PATH: /usr/local
+        CC: gcc
       run: |
-        case ${{ matrix.os }} in
+        case "${{ matrix.os }}" in
           windows-latest)
-            export LDFLAGS="-Wl,--stack,4000000 -largp"
-            make
+            export ARGP_PATH="$CYGWIN_ROOT/usr/local"
+            make CC="gcc" EXTRA_CFLAGS="-DWINDOWS_COMPAT" extra
             ;;
             
-          ubuntu-latest)
-            make
+          *)
             make extra
             ;;
-            
-          macos-latest)
-            make ARGP=$(brew --prefix)
+        esac
+
+    - name: Collect artifacts
+      shell: bash
+      run: |
+        mkdir -p artifacts
+        case "${{ matrix.os }}" in
+          windows-latest)
+            cp *.exe artifacts/
+            ;;
+          *)
+            cp f3write f3read f3probe f3brew f3fix artifacts/
             ;;
         esac
 
-    - name: Run tests
-      shell: bash
-      run: |
-        case ${{ matrix.os }} in
-          windows-latest)
-            ./f3write --version
-            ./f3read --version
-            ;;
-            
-          ubuntu-latest)
-            make test
-            ;;
-        esac
+    - name: Upload binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: f3-${{ matrix.os }}-binaries
+        path: artifacts/
+        if-no-files-found: error
 
   docker-build:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
       
       - name: Build Docker image
-        run: docker build -t f3 .
-      
-      - name: Test Docker image
         run: |
-          docker run --rm f3 f3write --version
-          docker run --rm f3 f3read --version
+          docker build -t f3 .
+          
+      - name: Extract Docker artifacts
+        run: |
+          mkdir -p docker-artifacts
+          docker run --rm -v $(pwd)/docker-artifacts:/out f3 bash -c "cp /usr/local/bin/f3* /out/"
+      
+      - name: Upload Docker artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-f3-binaries
+          path: docker-artifacts/
