@@ -12,14 +12,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        # Явно указываем использовать LF окончания
-        fetch-depth: 0  # Опционально: получаем всю историю коммитов
-
-    - name: Configure Git line endings
-      run: |
-        git config --global core.autocrlf false
-        git config --global core.eol lf
 
     - name: Install Cygwin (Windows)
       if: matrix.os == 'windows-latest'
@@ -29,19 +21,26 @@ jobs:
         packages: gcc-core make libargp-devel
         install-dir: C:/cygwin64
 
-    - name: Setup environment
+    - name: Setup environment (Windows)
+      if: matrix.os == 'windows-latest'
       shell: bash
       run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            export PATH="/cygdrive/c/cygwin64/bin:$PATH"
-        else
-            sudo apt-get update
-            sudo apt-get install -y libudev-dev libparted-dev
-        fi
+        echo "Cygwin path: /cygdrive/c/cygwin64/bin"
+        export PATH="/cygdrive/c/cygwin64/bin:$PATH"
+        gcc --version
+        make --version
+
+    - name: Setup environment (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev libparted-dev
 
     - name: Build
+      shell: bash
       run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
             make CC="gcc" EXTRA_CFLAGS="-DWINDOWS_COMPAT" all
         else
             make all
